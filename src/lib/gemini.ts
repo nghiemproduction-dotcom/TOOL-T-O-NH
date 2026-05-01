@@ -87,10 +87,11 @@ export async function generateImageVariation(
   } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
     
-    // Check various error formats (string, object message, or deep JSON status)
+    // Convert error to string/json for broad checking
     const errorStr = JSON.stringify(error).toLowerCase();
     const errorMsg = (error?.message || String(error)).toLowerCase();
     
+    // 1. Check for Quota Exceeded (429)
     if (
       errorMsg.includes("429") || 
       errorMsg.includes("quota") || 
@@ -101,6 +102,18 @@ export async function generateImageVariation(
     ) {
       throw new Error("QUOTA_EXCEEDED");
     }
+
+    // 2. Check for Invalid/Missing API Key (400/403)
+    if (
+      errorMsg.includes("api key not found") || 
+      errorMsg.includes("invalid") || 
+      errorMsg.includes("403") ||
+      errorStr.includes("403") ||
+      errorStr.includes("api_key_invalid")
+    ) {
+      throw new Error("INVALID_API_KEY");
+    }
+
     throw error;
   }
 

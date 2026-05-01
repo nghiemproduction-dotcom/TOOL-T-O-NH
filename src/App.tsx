@@ -92,10 +92,13 @@ export default function App() {
           }
         } catch (verr: any) {
           console.error(`Error generating variation ${i + 1}:`, verr);
-          if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY") {
+          if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY" || verr?.message === "INVALID_API_KEY") {
              setHasQuotaError(true);
              setShowKeyModal(true);
-             throw new Error("Lượt dùng miễn phí của hệ thống đã hết. Vui lòng nhập API Key Pro của bạn để tiếp tục.");
+             if (verr?.message === "INVALID_API_KEY") {
+               throw new Error("Mã API Key không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại.");
+             }
+             throw new Error("Lượt dùng miễn phí của hệ thống đã hết. Vui lòng nhập API Key của riêng bạn để tiếp tục.");
           }
           if (i === 0) throw verr;
         }
@@ -330,14 +333,14 @@ export default function App() {
                 <div className="w-16 h-16 bg-orange-500/10 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 border border-orange-500/20">
                   <Key className="w-8 h-8 text-orange-500" />
                 </div>
-                <h2 className="text-xl font-black text-white italic tracking-tight underline decoration-orange-500 decoration-4">GEMINI PRO API</h2>
+                <h2 className="text-xl font-black text-white italic tracking-tight underline decoration-orange-500 decoration-4">CẤU HÌNH API KEY</h2>
                 {hasQuotaError ? (
                   <p className="text-xs text-orange-400 mt-2 font-bold uppercase tracking-wider px-4 bg-orange-400/10 py-2 rounded-xl border border-orange-400/20">
-                    Hết lượt dùng miễn phí! Hãy nhập Key của bạn.
+                    Cần nhập Key để tiếp tục!
                   </p>
                 ) : (
                   <p className="text-xs text-neutral-500 mt-2 font-bold uppercase tracking-widest px-4">
-                    Nhập API Key để sử dụng không giới hạn lượt tạo ảnh hàng ngày.
+                    Nhập API Key cá nhân để sử dụng không giới hạn lượt tạo.
                   </p>
                 )}
               </div>
