@@ -326,7 +326,7 @@ export default function App() {
                       <img 
                         src={`data:image/png;base64,${img.b64}`} 
                         alt={`Art ${img.index}`} 
-                        className="w-full h-auto object-cover"
+                        className="w-full h-auto block"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-8">
                         <Button 
