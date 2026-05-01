@@ -50,18 +50,17 @@ export async function generateImageVariation(
     ? `${promptVariation}\n\nAdditional user requirement: ${userModifier}`
     : promptVariation;
 
-  const apiKeyToUse = (customApiKey && customApiKey.trim().length > 0) 
-    ? customApiKey.trim() 
-    : (process.env.GEMINI_API_KEY);
+  // Robust key selection
+  let apiKeyToUse = (customApiKey && customApiKey.trim()) || "";
   
-  if (!apiKeyToUse || apiKeyToUse === "undefined" || apiKeyToUse === "") {
-    console.error("[Gemini] API Key is missing. User must provide one in UI.");
-    throw new Error("MISSING_API_KEY");
+  if (!apiKeyToUse && typeof process !== 'undefined' && process.env.GEMINI_API_KEY) {
+    const envKey = process.env.GEMINI_API_KEY;
+    if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 5) {
+      apiKeyToUse = envKey;
+    }
   }
 
-  // Final validation of key format (basic check)
-  const finalApiKey = apiKeyToUse.trim();
-  const ai = new GoogleGenAI({ apiKey: finalApiKey });
+  const ai = new GoogleGenAI({ apiKey: apiKeyToUse });
 
   try {
     const response = await ai.models.generateContent({
@@ -75,7 +74,7 @@ export async function generateImageVariation(
             },
           },
           {
-            text: `(CRITICAL: Maintain original image dimensions and aspect ratio. Do NOT stretch, warp, or change the subject's proportions). ${finalPrompt}`,
+            text: `(IMPORTANT: MAINTAIN ORIGINAL ASPECT RATIO AND SCALE. DO NOT STRETCH OR WARP THE FACE OR PROPORTIONS. RENDER THE SUBJECT AS-IS). ${finalPrompt}`,
           },
         ],
       },

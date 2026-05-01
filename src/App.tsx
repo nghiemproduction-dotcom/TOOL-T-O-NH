@@ -125,18 +125,24 @@ export default function App() {
           }
         } catch (verr: any) {
           console.error(`Error generating variation ${i + 1}:`, verr);
-          if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY" || verr?.message === "INVALID_API_KEY") {
+          
+          const isKeyError = verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY" || verr?.message === "INVALID_API_KEY";
+          
+          if (isKeyError) {
              setHasQuotaError(true);
              setShowKeyModal(true);
+             
+             let msg = "Lượt dùng miễn phí đã hết. Vui lòng nhập Key cá nhân của bạn.";
+             if (verr?.message === "INVALID_API_KEY") msg = "API Key không hợp lệ. Vui lòng kiểm tra lại.";
              if (verr?.message === "MISSING_API_KEY") {
-               throw new Error("Ứng dụng chưa được cấu hình API Key. Vui lòng nhập mã Key của bạn để sử dụng.");
+               msg = "Hệ thống chưa được cấu hình API Key. Hãy nhập Key của bạn để tiếp tục.";
+               console.warn("Vercel/Production Warning: No GEMINI_API_KEY environment variable detected.");
              }
-             if (verr?.message === "INVALID_API_KEY") {
-               throw new Error("Mã API Key không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại.");
-             }
-             throw new Error("Lượt dùng miễn phí của hệ thống đã hết. Vui lòng nhập API Key của riêng bạn để tiếp tục.");
+             
+             throw new Error(msg);
           }
-          if (i === 0) throw verr;
+          // If it's another error (like networking/image too big), just stop the loop but don't force key modal
+          throw verr;
         }
       }
 
