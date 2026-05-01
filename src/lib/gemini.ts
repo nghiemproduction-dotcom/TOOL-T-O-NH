@@ -58,30 +58,50 @@ export async function generateImageVariation(
 
   const ai = new GoogleGenAI({ apiKey });
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-image-preview",
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            data: base64ImageData,
-            mimeType: mimeType,
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-image-preview",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: base64ImageData,
+              mimeType: mimeType,
+            },
           },
-        },
-        {
-          text: finalPrompt,
-        },
-      ],
-    },
-  });
+          {
+            text: finalPrompt,
+          },
+        ],
+      },
+    });
 
-  if (response.candidates && response.candidates.length > 0) {
-    const parts = response.candidates[0].content?.parts || [];
-    for (const part of parts) {
-      if (part.inlineData) {
-        return part.inlineData.data;
+    if (response.candidates && response.candidates.length > 0) {
+      const parts = response.candidates[0].content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData) {
+          return part.inlineData.data;
+        }
       }
     }
+  } catch (error: any) {
+    console.error("Gemini API Error Detail:", error);
+    
+    // Check various error formats (string, object message, or deep JSON status)
+    const errorStr = JSON.stringify(error).toLowerCase();
+    const errorMsg = (error?.message || String(error)).toLowerCase();
+    
+    if (
+      errorMsg.includes("429") || 
+      errorMsg.includes("quota") || 
+      errorMsg.includes("limit") ||
+      errorStr.includes("429") ||
+      errorStr.includes("quota") ||
+      errorStr.includes("resource_exhausted")
+    ) {
+      throw new Error("QUOTA_EXCEEDED");
+    }
+    throw error;
   }
 
   return null;

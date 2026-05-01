@@ -26,6 +26,7 @@ export default function App() {
   const [customApiKey, setCustomApiKey] = useState<string>("");
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [tempKey, setTempKey] = useState("");
+  const [hasQuotaError, setHasQuotaError] = useState(false);
 
   useEffect(() => {
     const savedKey = localStorage.getItem("NGHIEMART_GEMINI_KEY");
@@ -39,6 +40,7 @@ export default function App() {
     localStorage.setItem("NGHIEMART_GEMINI_KEY", tempKey);
     setCustomApiKey(tempKey);
     setShowKeyModal(false);
+    setHasQuotaError(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,8 +93,9 @@ export default function App() {
         } catch (verr: any) {
           console.error(`Error generating variation ${i + 1}:`, verr);
           if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY") {
+             setHasQuotaError(true);
              setShowKeyModal(true);
-             throw new Error("Lượt dùng miễn phí đã hết hoặc chưa có API Key. Vui lòng nhập API Key của bạn để tiếp tục.");
+             throw new Error("Lượt dùng miễn phí của hệ thống đã hết. Vui lòng nhập API Key Pro của bạn để tiếp tục.");
           }
           if (i === 0) throw verr;
         }
@@ -328,9 +331,15 @@ export default function App() {
                   <Key className="w-8 h-8 text-orange-500" />
                 </div>
                 <h2 className="text-xl font-black text-white italic tracking-tight underline decoration-orange-500 decoration-4">GEMINI PRO API</h2>
-                <p className="text-xs text-neutral-500 mt-2 font-bold uppercase tracking-widest px-4">
-                  Nhập API Key để sử dụng không giới hạn lượt tạo ảnh hàng ngày.
-                </p>
+                {hasQuotaError ? (
+                  <p className="text-xs text-orange-400 mt-2 font-bold uppercase tracking-wider px-4 bg-orange-400/10 py-2 rounded-xl border border-orange-400/20">
+                    Hết lượt dùng miễn phí! Hãy nhập Key của bạn.
+                  </p>
+                ) : (
+                  <p className="text-xs text-neutral-500 mt-2 font-bold uppercase tracking-widest px-4">
+                    Nhập API Key để sử dụng không giới hạn lượt tạo ảnh hàng ngày.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-4">
