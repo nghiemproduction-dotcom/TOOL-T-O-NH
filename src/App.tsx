@@ -128,6 +128,9 @@ export default function App() {
           if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY" || verr?.message === "INVALID_API_KEY") {
              setHasQuotaError(true);
              setShowKeyModal(true);
+             if (verr?.message === "MISSING_API_KEY") {
+               throw new Error("Ứng dụng chưa được cấu hình API Key. Vui lòng nhập mã Key của bạn để sử dụng.");
+             }
              if (verr?.message === "INVALID_API_KEY") {
                throw new Error("Mã API Key không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại.");
              }
@@ -208,14 +211,14 @@ export default function App() {
             
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className={`relative overflow-hidden aspect-square rounded-[3rem] border-2 border-dashed transition-all duration-500 cursor-pointer flex flex-col items-center justify-center bg-neutral-900/30
-                ${previewUrl ? "border-orange-500/30 shadow-[0_0_40px_rgba(249,115,22,0.05)]" : "border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900/50"}`}
+              className={`relative overflow-hidden rounded-[3rem] border-2 border-dashed transition-all duration-500 cursor-pointer flex flex-col items-center justify-center bg-neutral-900/30
+                ${previewUrl ? "border-orange-500/30 shadow-[0_0_40px_rgba(249,115,22,0.05)]" : "aspect-square border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900/50"}`}
             >
               <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange} />
               
               {previewUrl ? (
-                <div className="absolute inset-0 group">
-                  <img src={previewUrl} className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-1000" alt="Preview" />
+                <div className="relative group w-full">
+                  <img src={previewUrl} className="w-full h-auto block animate-in fade-in zoom-in-95 duration-1000" alt="Preview" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                     <Button variant="secondary" size="sm" className="bg-white text-black font-black rounded-2xl h-12 px-6">Đổi ảnh khác</Button>
                   </div>
@@ -391,7 +394,14 @@ export default function App() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">Your API Key</Label>
+                  <div className="flex justify-between items-center px-1">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">Your API Key</Label>
+                    {customApiKey && (
+                      <span className="text-[9px] font-bold text-orange-500/70">
+                        Active: {customApiKey.substring(0, 4)}...{customApiKey.substring(customApiKey.length - 4)}
+                      </span>
+                    )}
+                  </div>
                   <Input 
                     type="password"
                     placeholder="Nhập mã AI Key của bạn..."

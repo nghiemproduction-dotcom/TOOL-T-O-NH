@@ -54,12 +54,12 @@ export async function generateImageVariation(
     ? customApiKey.trim() 
     : (process.env.GEMINI_API_KEY);
   
-  if (!apiKeyToUse) {
-    console.error("[Gemini] No API Key found in UI, VITE_GEMINI_API_KEY, or process.env.GEMINI_API_KEY");
+  if (!apiKeyToUse || apiKeyToUse === "undefined" || apiKeyToUse === "") {
+    console.error("[Gemini] API Key is missing. User must provide one in UI.");
     throw new Error("MISSING_API_KEY");
   }
 
-  // Use only trimmed key
+  // Final validation of key format (basic check)
   const finalApiKey = apiKeyToUse.trim();
   const ai = new GoogleGenAI({ apiKey: finalApiKey });
 
@@ -75,7 +75,7 @@ export async function generateImageVariation(
             },
           },
           {
-            text: finalPrompt,
+            text: `(CRITICAL: Maintain original image dimensions and aspect ratio. Do NOT stretch, warp, or change the subject's proportions). ${finalPrompt}`,
           },
         ],
       },
