@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, ImageIcon, Loader2, Download, Wand2, Check, Sparkles, Key, X, Settings2 } from "lucide-react";
+import { Upload, ImageIcon, Loader2, Download, Wand2, Check, Sparkles, Key, X, Settings2, Smartphone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,31 @@ export default function App() {
   const [tempKey, setTempKey] = useState("");
   const [hasQuotaError, setHasQuotaError] = useState(false);
 
+  const [isKeySaved, setIsKeySaved] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
   useEffect(() => {
     const savedKey = localStorage.getItem("NGHIEMART_GEMINI_KEY");
     if (savedKey) {
@@ -37,10 +62,18 @@ export default function App() {
   }, []);
 
   const handleSaveKey = () => {
-    localStorage.setItem("NGHIEMART_GEMINI_KEY", tempKey);
-    setCustomApiKey(tempKey);
-    setShowKeyModal(false);
+    if (!tempKey.trim()) {
+      alert("Vui lòng nhập API Key!");
+      return;
+    }
+    localStorage.setItem("NGHIEMART_GEMINI_KEY", tempKey.trim());
+    setCustomApiKey(tempKey.trim());
+    setIsKeySaved(true);
     setHasQuotaError(false);
+    setTimeout(() => {
+      setIsKeySaved(false);
+      setShowKeyModal(false);
+    }, 1500);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,12 +170,23 @@ export default function App() {
             <p className="text-[10px] uppercase tracking-[0.4em] text-orange-500/70 font-black mt-1">Tools Studio v3.2</p>
           </div>
           
-          <button 
-            onClick={() => setShowKeyModal(true)}
-            className={`p-3 rounded-2xl transition-all ${customApiKey ? "bg-orange-500/10 text-orange-500" : "bg-neutral-900 text-neutral-500"}`}
-          >
-            <Settings2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="p-3 rounded-2xl bg-orange-500/10 text-orange-500 animate-bounce"
+                title="Cài đặt App"
+              >
+                <Smartphone className="w-5 h-5" />
+              </button>
+            )}
+            <button 
+              onClick={() => setShowKeyModal(true)}
+              className={`p-3 rounded-2xl transition-all ${customApiKey ? "bg-orange-500/10 text-orange-500" : "bg-neutral-900 text-neutral-500"}`}
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
         {/* Content */}
@@ -359,9 +403,15 @@ export default function App() {
                 
                 <Button 
                   onClick={handleSaveKey}
-                  className="w-full h-14 bg-white text-black hover:bg-neutral-200 font-black rounded-2xl uppercase tracking-widest text-xs"
+                  className={`w-full h-14 font-black rounded-2xl uppercase tracking-widest text-xs transition-all ${isKeySaved ? "bg-green-500 text-white" : "bg-white text-black hover:bg-neutral-200"}`}
+                  disabled={isKeySaved}
                 >
-                  LƯU CẤU HÌNH
+                  {isKeySaved ? (
+                    <span className="flex items-center gap-2">
+                      <Check className="w-4 h-4" />
+                      ĐÃ LƯU THÀNH CÔNG
+                    </span>
+                  ) : "LƯU CẤU HÌNH"}
                 </Button>
                 
                 <p className="text-[10px] text-neutral-600 text-center leading-relaxed font-bold">

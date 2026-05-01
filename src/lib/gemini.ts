@@ -50,13 +50,17 @@ export async function generateImageVariation(
     ? `${promptVariation}\n\nAdditional user requirement: ${userModifier}`
     : promptVariation;
 
-  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  const apiKeyToUse = (customApiKey && customApiKey.trim().length > 0) ? customApiKey.trim() : process.env.GEMINI_API_KEY;
   
-  if (!apiKey) {
+  if (!apiKeyToUse) {
     throw new Error("MISSING_API_KEY");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // Debug log for user to verify (partially masked)
+  const maskedKey = apiKeyToUse.substring(0, 8) + "..." + apiKeyToUse.substring(apiKeyToUse.length - 4);
+  console.log(`[Gemini] Using key: ${maskedKey} | Source: ${customApiKey ? "User UI" : "System Env"}`);
+
+  const ai = new GoogleGenAI({ apiKey: apiKeyToUse });
 
   try {
     const response = await ai.models.generateContent({
@@ -87,12 +91,14 @@ export async function generateImageVariation(
   } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
     
-    // Convert error to string/json for broad checking
+    // Robust error checking for production (JSON status, code, or message)
     const errorStr = JSON.stringify(error).toLowerCase();
     const errorMsg = (error?.message || String(error)).toLowerCase();
-    
+    const statusCode = error?.status || error?.statusCode || (error?.error?.code);
+
     // 1. Check for Quota Exceeded (429)
     if (
+      statusCode === 429 ||
       errorMsg.includes("429") || 
       errorMsg.includes("quota") || 
       errorMsg.includes("limit") ||
@@ -105,9 +111,10 @@ export async function generateImageVariation(
 
     // 2. Check for Invalid/Missing API Key (400/403)
     if (
+      statusCode === 400 || 
+      statusCode === 403 ||
       errorMsg.includes("api key not found") || 
       errorMsg.includes("invalid") || 
-      errorMsg.includes("403") ||
       errorStr.includes("403") ||
       errorStr.includes("api_key_invalid")
     ) {
