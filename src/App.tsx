@@ -1,15 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, ImageIcon, Loader2, Download, Wand2, LogIn, LogOut, Check, Sparkles, Key } from "lucide-react";
+import { Upload, ImageIcon, Loader2, Download, Wand2, Check, Sparkles, Key, X, Settings2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { presets, generateImageVariation } from "./lib/gemini";
-import { auth, signInWithGoogle, logOut } from "./lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [base64Data, setBase64Data] = useState<string | null>(null);
@@ -24,12 +22,24 @@ export default function App() {
   const [generatedImages, setGeneratedImages] = useState<{ b64: string; index: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // API Key Management
+  const [customApiKey, setCustomApiKey] = useState<string>("");
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [tempKey, setTempKey] = useState("");
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
+    const savedKey = localStorage.getItem("NGHIEMART_GEMINI_KEY");
+    if (savedKey) {
+      setCustomApiKey(savedKey);
+      setTempKey(savedKey);
+    }
   }, []);
+
+  const handleSaveKey = () => {
+    localStorage.setItem("NGHIEMART_GEMINI_KEY", tempKey);
+    setCustomApiKey(tempKey);
+    setShowKeyModal(false);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -68,15 +78,21 @@ export default function App() {
       for (let i = 0; i < variations.length; i++) {
         setLoadingStep(`Đang xử lý ảnh ${i + 1}/3...`);
         try {
-          const b64 = await generateImageVariation(variations[i], base64Data, mimeType, userModifier);
+          const b64 = await generateImageVariation(
+            variations[i], 
+            base64Data, 
+            mimeType, 
+            userModifier,
+            customApiKey
+          );
           if (b64) {
             setGeneratedImages((prev) => [...prev, { b64, index: i + 1 }]);
           }
         } catch (verr: any) {
           console.error(`Error generating variation ${i + 1}:`, verr);
-          if (verr?.status === 429 || verr?.message?.includes("Quota") || verr?.message?.includes("429")) {
-             alert("Hạn mức miễn phí đã hết hoặc hệ thống quá tải. Nếu bạn có bản Pro, hãy nhấn 'SỬ DỤNG API KEY PRO' bên dưới để kết nối mã API của riêng bạn.");
-             break;
+          if (verr?.message === "QUOTA_EXCEEDED" || verr?.message === "MISSING_API_KEY") {
+             setShowKeyModal(true);
+             throw new Error("Lượt dùng miễn phí đã hết hoặc chưa có API Key. Vui lòng nhập API Key của bạn để tiếp tục.");
           }
           if (i === 0) throw verr;
         }
@@ -85,7 +101,7 @@ export default function App() {
       setLoadingStep("Thành công!");
     } catch (err: any) {
       console.error(err);
-      alert("Lỗi: " + (err.message || "Đã xảy ra lỗi không xác định."));
+      alert(err.message || "Đã xảy ra lỗi không xác định.");
     } finally {
       setIsGenerating(false);
       setLoadingStep("");
@@ -101,46 +117,29 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  const handleConfigKey = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-    } else {
-      alert("Hãy nhấn biểu tượng bánh răng (Settings) ở góc trên bên phải trang AI Studio để chọn API Key Pro của bạn.");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-black text-neutral-100 font-sans selection:bg-orange-500/30">
       <div className="max-w-md mx-auto bg-black min-h-screen shadow-2xl flex flex-col border-x border-neutral-900 relative">
         
         {/* Header */}
-        <header className="px-8 py-8 border-b border-neutral-800 bg-black sticky top-0 z-20 flex justify-between items-center">
+        <header className="px-8 py-8 border-b border-neutral-900 bg-black/80 backdrop-blur-xl sticky top-0 z-20 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-black tracking-tighter flex items-center gap-3 text-white italic">
               <Sparkles className="w-6 h-6 text-orange-500 fill-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.5)]" />
               NGHIEMART
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-orange-500/70 font-black mt-1">Tools Studio v3.1</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-orange-500/70 font-black mt-1">Tools Studio v3.2</p>
           </div>
           
-          <div className="flex items-center gap-2">
-            {user ? (
-              <div className="flex items-center gap-3 bg-neutral-900 p-1.5 pl-4 rounded-2xl border border-neutral-800">
-                <span className="text-[10px] font-black text-neutral-400 uppercase hidden sm:inline">{user.displayName?.split(' ')[0]}</span>
-                <img src={user.photoURL || ""} className="w-7 h-7 rounded-xl border border-neutral-700" alt="Avatar" />
-                <button onClick={logOut} className="p-2 hover:bg-neutral-800 rounded-xl transition-colors">
-                  <LogOut className="w-4 h-4 text-neutral-500" />
-                </button>
-              </div>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={signInWithGoogle} className="text-neutral-500 hover:text-orange-500 font-black text-[10px] uppercase tracking-widest">
-                Login
-              </Button>
-            )}
-          </div>
+          <button 
+            onClick={() => setShowKeyModal(true)}
+            className={`p-3 rounded-2xl transition-all ${customApiKey ? "bg-orange-500/10 text-orange-500" : "bg-neutral-900 text-neutral-500"}`}
+          >
+            <Settings2 className="w-5 h-5" />
+          </button>
         </header>
 
-        {/* content */}
+        {/* Content */}
         <main className="flex-1 px-5 py-8 flex flex-col gap-10">
           
           {/* Upload */}
@@ -172,12 +171,12 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center">
+                <div className="text-center px-6">
                   <div className="w-20 h-20 bg-neutral-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-neutral-800 shadow-2xl transition-transform hover:scale-110">
                     <Upload className="w-8 h-8 text-neutral-600" />
                   </div>
                   <p className="text-base font-black text-neutral-200 tracking-tight">TẢI ẢNH CHÂN DUNG</p>
-                  <p className="text-[10px] text-neutral-600 mt-2 font-bold uppercase tracking-widest">Supports JPG, PNG, WEBP</p>
+                  <p className="text-[10px] text-neutral-600 mt-2 font-bold uppercase tracking-widest">Tap to select photo</p>
                 </div>
               )}
             </div>
@@ -186,7 +185,7 @@ export default function App() {
           {/* Functions */}
           <section>
             <Label className="mb-4 block text-xs font-black uppercase tracking-[0.2em] text-neutral-500">
-              Chọn chức năng xử lý
+              02. Chọn chức năng xử lý
             </Label>
             <div className="grid grid-cols-1 gap-4">
               {presets.map((preset) => (
@@ -194,7 +193,7 @@ export default function App() {
                   key={preset.id}
                   onClick={() => {
                     setSelectedPresetId(preset.id);
-                    setGeneratedImages([]); // Clear old results when switching
+                    setGeneratedImages([]);
                   }}
                   className={`relative p-6 rounded-3xl border-2 text-left transition-all duration-300 group overflow-hidden
                     ${selectedPresetId === preset.id 
@@ -227,47 +226,37 @@ export default function App() {
           {/* Modifier */}
           <section>
             <Label className="mb-4 block text-xs font-black uppercase tracking-[0.2em] text-neutral-500">
-              Yêu cầu tinh chỉnh (Tuỳ chọn)
+              03. Yêu cầu tinh chỉnh (Tuỳ chọn)
             </Label>
             <Textarea 
               placeholder="Nhập thêm yêu cầu (vd: làm môi đỏ hơn, tóc đen bóng...)" 
               value={userModifier}
               onChange={(e) => setUserModifier(e.target.value)}
-              className="bg-black border-neutral-800 focus:border-orange-500 focus:ring-0 transition-all min-h-[120px] rounded-3xl text-sm placeholder:text-neutral-700 p-6"
+              className="bg-neutral-900/50 border-neutral-800 focus:border-orange-500 focus:ring-0 transition-all min-h-[120px] rounded-3xl text-sm placeholder:text-neutral-700 p-6"
             />
           </section>
 
           {/* Action */}
-          <div className="flex flex-col gap-4">
-            <Button 
-              className="h-20 text-xl font-black bg-orange-600 hover:bg-orange-500 text-white rounded-[2.5rem] shadow-[0_15px_30px_-10px_rgba(249,115,22,0.6)] transition-all active:scale-[0.96] disabled:bg-neutral-800 disabled:text-neutral-600"
-              onClick={handleGenerate}
-              disabled={isGenerating || !base64Data}
-            >
-              {isGenerating ? (
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="animate-pulse">ĐANG XỬ LÝ...</span>
-                  </div>
-                  <span className="text-[10px] font-bold mt-1 text-orange-200 opacity-60">{loadingStep}</span>
+          <Button 
+            className="h-20 text-xl font-black bg-orange-600 hover:bg-orange-500 text-white rounded-[2.5rem] shadow-[0_15px_30px_-10px_rgba(249,115,22,0.6)] transition-all active:scale-[0.96] disabled:bg-neutral-800 disabled:text-neutral-600"
+            onClick={handleGenerate}
+            disabled={isGenerating || !base64Data}
+          >
+            {isGenerating ? (
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="animate-pulse">ĐANG XỬ LÝ...</span>
                 </div>
-              ) : (
-                <span className="flex items-center gap-4">
-                  <Wand2 className="w-7 h-7" />
-                  BẮT ĐẦU NGAY
-                </span>
-              )}
-            </Button>
-            
-            <button 
-              onClick={handleConfigKey}
-              className="py-3 px-6 rounded-2xl border border-neutral-800 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-orange-400 hover:border-orange-500/30 transition-all flex items-center justify-center gap-2"
-            >
-              <Key className="w-3 h-3" />
-              SỬ DỤNG API KEY PRO (NẾU HẾT LƯỢT MIỄN PHÍ)
-            </button>
-          </div>
+                <span className="text-[10px] font-bold mt-1 text-orange-200 opacity-60">{loadingStep}</span>
+              </div>
+            ) : (
+              <span className="flex items-center gap-4">
+                <Wand2 className="w-7 h-7" />
+                BẮT ĐẦU NGAY
+              </span>
+            )}
+          </Button>
 
           {/* Results */}
           {generatedImages.length > 0 && (
@@ -303,14 +292,12 @@ export default function App() {
                        <span className="text-xs font-black uppercase tracking-[0.3em] text-neutral-600">
                         PHIÊN BẢN {img.index}
                        </span>
-                       <div className="flex gap-2">
-                         <button 
-                           onClick={() => handleDownload(img.b64, img.index)} 
-                           className="w-12 h-12 flex items-center justify-center bg-neutral-800 rounded-2xl hover:bg-orange-500 hover:text-white transition-all text-orange-500 shadow-lg"
-                         >
-                            <Download className="w-5 h-5" />
-                         </button>
-                       </div>
+                       <button 
+                         onClick={() => handleDownload(img.b64, img.index)} 
+                         className="w-12 h-12 flex items-center justify-center bg-neutral-800 rounded-2xl hover:bg-orange-500 hover:text-white transition-all text-orange-500 shadow-lg"
+                       >
+                          <Download className="w-5 h-5" />
+                       </button>
                     </div>
                   </div>
                 ))}
@@ -318,25 +305,61 @@ export default function App() {
             </section>
           )}
 
-          {!user && (
-            <div className="p-8 rounded-[2.5rem] bg-orange-500/5 border border-orange-500/10 text-center mb-10">
-              <Sparkles className="w-10 h-10 text-orange-500 mx-auto mb-4" />
-              <h4 className="text-base font-black text-white mb-2 uppercase tracking-tight">KÍCH HOẠT CHẾ ĐỘ PRO</h4>
-              <p className="text-xs text-neutral-500 leading-relaxed mb-6 px-4">
-                Đăng nhập để lưu lịch sử và kết nối với các công cụ nâng cao của NghiemArt.
-              </p>
-              <Button onClick={signInWithGoogle} className="w-full bg-white text-black hover:bg-neutral-200 font-black h-14 rounded-2xl transition-all uppercase text-xs tracking-widest">
-                ĐĂNG NHẬP GOOGLE
-              </Button>
-            </div>
-          )}
-
-
         </main>
         
         <footer className="p-8 text-center border-t border-neutral-900 bg-neutral-950/50">
            <p className="text-[10px] font-bold text-neutral-600 tracking-[0.2em] uppercase">Powered by Gemini & NghiemArt</p>
         </footer>
+
+        {/* API Key Modal */}
+        {showKeyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-0">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setShowKeyModal(false)} />
+            <div className="relative bg-neutral-900 w-full max-w-sm rounded-[2.5rem] border border-neutral-800 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+              <button 
+                onClick={() => setShowKeyModal(false)}
+                className="absolute top-6 right-6 p-2 text-neutral-500 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-orange-500/10 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 border border-orange-500/20">
+                  <Key className="w-8 h-8 text-orange-500" />
+                </div>
+                <h2 className="text-xl font-black text-white italic tracking-tight underline decoration-orange-500 decoration-4">GEMINI PRO API</h2>
+                <p className="text-xs text-neutral-500 mt-2 font-bold uppercase tracking-widest px-4">
+                  Nhập API Key để sử dụng không giới hạn lượt tạo ảnh hàng ngày.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">Your API Key</Label>
+                  <Input 
+                    type="password"
+                    placeholder="Nhập mã AI Key của bạn..."
+                    value={tempKey}
+                    onChange={(e) => setTempKey(e.target.value)}
+                    className="h-14 bg-black border-neutral-800 focus:border-orange-500 rounded-2xl text-center font-mono text-sm"
+                  />
+                </div>
+                
+                <Button 
+                  onClick={handleSaveKey}
+                  className="w-full h-14 bg-white text-black hover:bg-neutral-200 font-black rounded-2xl uppercase tracking-widest text-xs"
+                >
+                  LƯU CẤU HÌNH
+                </Button>
+                
+                <p className="text-[10px] text-neutral-600 text-center leading-relaxed font-bold">
+                  Key được lưu an toàn trên trình duyệt của bạn.<br />
+                  Lấy key miễn phí tại: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-orange-500 underline">aistudio.google.com</a>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

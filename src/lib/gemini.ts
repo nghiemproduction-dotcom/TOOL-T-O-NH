@@ -43,13 +43,20 @@ export async function generateImageVariation(
   promptVariation: string,
   base64ImageData: string,
   mimeType: string,
-  userModifier: string
+  userModifier: string,
+  customApiKey?: string
 ): Promise<string | null> {
   const finalPrompt = userModifier 
     ? `${promptVariation}\n\nAdditional user requirement: ${userModifier}`
     : promptVariation;
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("MISSING_API_KEY");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-image-preview",
